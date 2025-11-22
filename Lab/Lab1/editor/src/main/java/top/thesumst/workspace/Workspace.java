@@ -1,5 +1,9 @@
 package top.thesumst.workspace;
 
+import top.thesumst.observer.FileLogger;
+import top.thesumst.memento.WorkspaceMemento;
+import top.thesumst.memento.WorkspaceMemento.FileState;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -15,6 +19,9 @@ public class Workspace {
     
     private final Map<String, EditorInstance> files;  // 所有打开的文件 (路径 -> EditorInstance)
     private EditorInstance activeEditor;              // 当前活动的编辑器
+    private final Map<String, FileLogger> loggers;    // 每个文件的日志记录器
+    
+    private static final String WORKSPACE_STATE_FILE = ".editor_workspace"; // 工作区状态文件
     
     /**
      * 构造函数
@@ -22,6 +29,7 @@ public class Workspace {
     public Workspace() {
         this.files = new HashMap<>();
         this.activeEditor = null;
+        this.loggers = new HashMap<>();
     }
     
     /**
@@ -49,10 +57,22 @@ public class Workspace {
         if (Files.exists(filePath)) {
             // 读取文件内容
             List<String> lines = Files.readAllLines(filePath, StandardCharsets.UTF_8);
+            
+            // 检查首行是否为 #log，自动启用日志
+            boolean autoEnableLog = false;
+            if (!lines.isEmpty() && lines.get(0).trim().equals("#log")) {
+                autoEnableLog = true;
+            }
+            
             for (String line : lines) {
                 editor.getBuffer().append(line);
             }
             editor.markAsSaved(); // 刚加载的文件标记为未修改
+            
+            // 自动启用日志
+            if (autoEnableLog) {
+                enableLogging(editor);
+            }
         } else {
             // 文件不存在，创建空缓冲区
             // 标记为未修改（新文件）
@@ -225,6 +245,143 @@ public class Workspace {
     public void closeAll() {
         files.clear();
         activeEditor = null;
+    }
+    
+    // ===== 日志管理 =====
+    
+    /**
+     * 为指定编辑器启用日志
+     * @param editor 编辑器实例
+     */
+    public void enableLogging(EditorInstance editor) {
+        String path = editor.getFilePath();
+        if (!loggers.containsKey(path)) {
+            FileLogger logger = new FileLogger(path);
+            editor.addObserver(logger);
+            editor.setLoggingEnabled(true);
+            loggers.put(path, logger);
+        }
+    }
+    
+    /**
+     * 为当前活动编辑器启用日志
+     */
+    public void enableLoggingForActive() {
+        if (activeEditor != null) {
+            enableLogging(activeEditor);
+        }
+    }
+    
+    /**
+     * 为指定编辑器禁用日志
+     * @param editor 编辑器实例
+     */
+    public void disableLogging(EditorInstance editor) {
+        String path = editor.getFilePath();
+        FileLogger logger = loggers.get(path);
+        if (logger != null) {
+            editor.removeObserver(logger);
+            editor.setLoggingEnabled(false);
+            loggers.remove(path);
+        }
+    }
+    
+    /**
+     * 为当前活动编辑器禁用日志
+     */
+    public void disableLoggingForActive() {
+        if (activeEditor != null) {
+            disableLogging(activeEditor);
+        }
+    }
+    
+    /**
+     * 检查指定编辑器是否启用了日志
+     * @param editor 编辑器实例
+     * @return true 如果日志已启用
+     */
+    public boolean isLoggingEnabled(EditorInstance editor) {
+        return editor.isLoggingEnabled();
+    }
+    
+    // ===== 状态持久化（备忘录模式） =====
+    
+    /**
+     * 保存工作区状态到文件
+     * @throws IOException 如果保存失败
+     */
+    public void saveState() throws IOException {
+        saveState(WORKSPACE_STATE_FILE);
+    }
+    
+    /**
+     * 保存工作区状态到指定文件
+     * @param stateFile 状态文件路径
+     * @throws IOException 如果保存失败
+     */
+    public void saveState(String stateFile) throws IOException {
+        // 创建备忘录
+        List<FileState> fileStates = new ArrayList<>();
+        for (EditorInstance editor : files.values()) {
+            FileState state = new FileState(
+                editor.getFilePath(),
+                editor.isModified(),
+                editor.isLoggingEnabled()
+            );
+            fileStates.add(state);
+        }
+        
+        String activeFilePath = (activeEditor != null) ? activeEditor.getFilePath() : null;
+        WorkspaceMemento memento = new WorkspaceMemento(fileStates, activeFilePath);
+        
+        // 序列化并保存
+        String data = memento.serialize();
+        Files.write(Paths.get(stateFile), data.getBytes(StandardCharsets.UTF_8));
+    }
+    
+    /**
+     * 从文件恢复工作区状态
+     * @throws IOException 如果读取失败
+     */
+    public void restoreState() throws IOException {
+        restoreState(WORKSPACE_STATE_FILE);
+    }
+    
+    /**
+     * 从指定文件恢复工作区状态
+     * @param stateFile 状态文件路径
+     * @throws IOException 如果读取失败
+     */
+    public void restoreState(String stateFile) throws IOException {
+        Path statePath = Paths.get(stateFile);
+        if (!Files.exists(statePath)) {
+            return; // 状态文件不存在，跳过恢复
+        }
+        
+        // 读取并反序列化
+        String data = new String(Files.readAllBytes(statePath), StandardCharsets.UTF_8);
+        WorkspaceMemento memento = WorkspaceMemento.deserialize(data);
+        
+        // 恢复文件状态
+        for (FileState state : memento.getFileStates()) {
+            try {
+                EditorInstance editor = load(state.getFilePath());
+                editor.setModified(state.isModified());
+                
+                // 恢复日志状态
+                if (state.isLoggingEnabled()) {
+                    enableLogging(editor);
+                }
+            } catch (IOException e) {
+                System.err.println("无法加载文件: " + state.getFilePath() + " - " + e.getMessage());
+            }
+        }
+        
+        // 恢复活动编辑器
+        String activeFilePath = memento.getActiveFilePath();
+        if (activeFilePath != null && files.containsKey(normalizePath(activeFilePath))) {
+            activate(activeFilePath);
+        }
     }
     
     /**
