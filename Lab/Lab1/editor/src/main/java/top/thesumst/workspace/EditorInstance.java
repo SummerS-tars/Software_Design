@@ -2,10 +2,16 @@ package top.thesumst.workspace;
 
 import top.thesumst.engine.TextBuffer;
 import top.thesumst.command.CommandHistory;
+import top.thesumst.command.Command;
+import top.thesumst.observer.EditorObserver;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * EditorInstance - 代表一个打开的文件会话
  * 包含文件路径、文本缓冲区、命令历史和修改状态
+ * 支持观察者模式，可以监听命令执行事件
  */
 public class EditorInstance {
     
@@ -13,6 +19,8 @@ public class EditorInstance {
     private final TextBuffer buffer;         // 文本内容
     private final CommandHistory history;    // 命令历史（撤销/重做）
     private boolean isModified;              // 修改标记
+    private final List<EditorObserver> observers; // 观察者列表
+    private boolean loggingEnabled;          // 日志开关
     
     /**
      * 构造函数
@@ -23,6 +31,13 @@ public class EditorInstance {
         this.buffer = new TextBuffer();
         this.history = new CommandHistory();
         this.isModified = false;
+        this.observers = new ArrayList<>();
+        this.loggingEnabled = false;
+        
+        // 设置命令历史的回调，自动通知观察者
+        this.history.setOnExecute(this::notifyCommandExecuted);
+        this.history.setOnUndo(this::notifyCommandUndone);
+        this.history.setOnRedo(this::notifyCommandRedone);
     }
     
     /**
@@ -91,9 +106,75 @@ public class EditorInstance {
         return filePath;
     }
     
+    // ===== 观察者模式支持 =====
+    
+    /**
+     * 注册观察者
+     * @param observer 观察者对象
+     */
+    public void addObserver(EditorObserver observer) {
+        if (!observers.contains(observer)) {
+            observers.add(observer);
+        }
+    }
+    
+    /**
+     * 移除观察者
+     * @param observer 观察者对象
+     */
+    public void removeObserver(EditorObserver observer) {
+        observers.remove(observer);
+    }
+    
+    /**
+     * 通知所有观察者命令已执行
+     * @param command 已执行的命令
+     */
+    public void notifyCommandExecuted(Command command) {
+        for (EditorObserver observer : observers) {
+            observer.onCommandExecuted(command);
+        }
+    }
+    
+    /**
+     * 通知所有观察者命令已撤销
+     * @param command 已撤销的命令
+     */
+    public void notifyCommandUndone(Command command) {
+        for (EditorObserver observer : observers) {
+            observer.onCommandUndone(command);
+        }
+    }
+    
+    /**
+     * 通知所有观察者命令已重做
+     * @param command 已重做的命令
+     */
+    public void notifyCommandRedone(Command command) {
+        for (EditorObserver observer : observers) {
+            observer.onCommandRedone(command);
+        }
+    }
+    
+    /**
+     * 检查是否启用日志
+     * @return true 如果日志已启用
+     */
+    public boolean isLoggingEnabled() {
+        return loggingEnabled;
+    }
+    
+    /**
+     * 设置日志开关
+     * @param enabled 是否启用日志
+     */
+    public void setLoggingEnabled(boolean enabled) {
+        this.loggingEnabled = enabled;
+    }
+    
     @Override
     public String toString() {
-        return String.format("EditorInstance[file=%s, modified=%s, lines=%d]", 
-                           filePath, isModified, buffer.getSize());
+        return String.format("EditorInstance[file=%s, modified=%s, lines=%d, logging=%s]", 
+                           filePath, isModified, buffer.getSize(), loggingEnabled);
     }
 }

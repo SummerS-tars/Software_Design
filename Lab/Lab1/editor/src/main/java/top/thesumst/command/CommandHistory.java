@@ -1,15 +1,22 @@
 package top.thesumst.command;
 
 import java.util.Stack;
+import java.util.function.Consumer;
 
 /**
  * CommandHistory - 命令历史管理器
  * 使用两个栈实现撤销/重做功能
+ * 支持命令执行事件的回调通知
  */
 public class CommandHistory {
     
     private final Stack<Command> undoStack; // 撤销栈
     private final Stack<Command> redoStack; // 重做栈
+    
+    // 事件回调
+    private Consumer<Command> onExecute;
+    private Consumer<Command> onUndo;
+    private Consumer<Command> onRedo;
     
     /**
      * 构造函数
@@ -33,6 +40,11 @@ public class CommandHistory {
         
         // 清空重做栈（执行新命令后，之前的重做历史失效）
         redoStack.clear();
+        
+        // 触发回调
+        if (onExecute != null) {
+            onExecute.accept(command);
+        }
     }
     
     /**
@@ -52,6 +64,11 @@ public class CommandHistory {
         
         // 将命令压入重做栈
         redoStack.push(command);
+        
+        // 触发回调
+        if (onUndo != null) {
+            onUndo.accept(command);
+        }
         
         return true;
     }
@@ -73,6 +90,11 @@ public class CommandHistory {
         
         // 将命令压入撤销栈
         undoStack.push(command);
+        
+        // 触发回调
+        if (onRedo != null) {
+            onRedo.accept(command);
+        }
         
         return true;
     }
@@ -115,5 +137,31 @@ public class CommandHistory {
      */
     public int getRedoStackSize() {
         return redoStack.size();
+    }
+    
+    // ===== 事件回调设置 =====
+    
+    /**
+     * 设置命令执行回调
+     * @param callback 回调函数
+     */
+    public void setOnExecute(Consumer<Command> callback) {
+        this.onExecute = callback;
+    }
+    
+    /**
+     * 设置命令撤销回调
+     * @param callback 回调函数
+     */
+    public void setOnUndo(Consumer<Command> callback) {
+        this.onUndo = callback;
+    }
+    
+    /**
+     * 设置命令重做回调
+     * @param callback 回调函数
+     */
+    public void setOnRedo(Consumer<Command> callback) {
+        this.onRedo = callback;
     }
 }
