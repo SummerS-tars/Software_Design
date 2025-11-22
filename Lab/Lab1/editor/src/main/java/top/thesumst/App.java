@@ -1,13 +1,15 @@
 package top.thesumst;
 
+import top.thesumst.cli.CommandLineApp;
+
 /**
- * Hello world!
- *
+ * 文本编辑器主程序入口
  */
 public class App 
 {
     public static void main( String[] args )
     {
-        System.out.println( "Hello World!" );
+        CommandLineApp app = new CommandLineApp();
+        app.run();
     }
 }
