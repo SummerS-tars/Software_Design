@@ -14,6 +14,7 @@ import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -134,12 +135,80 @@ public class CommandLineApp {
     
     private void cmdSave(ParsedCommand cmd) throws IOException {
         if (cmd.getArgCount() == 0) {
-            workspace.saveActive();
-            System.out.println("已保存当前文件");
+            // 默认保存当前文件
+            EditorInstance editor = workspace.getActiveEditor();
+            if (editor == null) {
+                System.out.println("没有活动的编辑器");
+                return;
+            }
+            
+            try {
+                workspace.saveActive();
+                System.out.println("已保存: " + editor.getFileName());
+            } catch (IOException e) {
+                System.err.println("保存失败: " + e.getMessage());
+                throw e;
+            }
         } else {
-            String path = cmd.getArg(0);
-            workspace.save(path);
-            System.out.println("已保存文件: " + path);
+            String arg = cmd.getArg(0);
+            
+            if ("all".equalsIgnoreCase(arg)) {
+                // 保存所有文件
+                List<String> openFiles = workspace.getOpenFiles();
+                if (openFiles.isEmpty()) {
+                    System.out.println("没有打开的文件");
+                    return;
+                }
+                
+                int savedCount = 0;
+                int errorCount = 0;
+                List<String> errors = new ArrayList<>();
+                
+                for (String filePath : openFiles) {
+                    try {
+                        workspace.save(filePath);
+                        savedCount++;
+                        EditorInstance editor = workspace.getEditor(filePath);
+                        System.out.println("已保存: " + editor.getFileName());
+                    } catch (IOException e) {
+                        errorCount++;
+                        EditorInstance editor = workspace.getEditor(filePath);
+                        String errorMsg = editor.getFileName() + ": " + e.getMessage();
+                        errors.add(errorMsg);
+                        System.err.println("保存失败: " + errorMsg);
+                    }
+                }
+                
+                System.out.println("---");
+                System.out.println("保存完成: 成功 " + savedCount + " 个，失败 " + errorCount + " 个");
+                
+                if (!errors.isEmpty() && errorCount > 0) {
+                    throw new IOException("部分文件保存失败");
+                }
+            } else {
+                // 保存指定文件
+                try {
+                    workspace.save(arg);
+                    // 尝试通过路径获取编辑器实例来显示文件名
+                    EditorInstance editor = workspace.getEditor(arg);
+                    if (editor == null) {
+                        // 如果直接获取失败，遍历查找
+                        for (String path : workspace.getOpenFiles()) {
+                            EditorInstance e = workspace.getEditor(path);
+                            if (e != null && (e.getFilePath().equals(arg) || 
+                                              e.getFilePath().endsWith(arg) ||
+                                              arg.endsWith(e.getFileName()))) {
+                                editor = e;
+                                break;
+                            }
+                        }
+                    }
+                    System.out.println("已保存: " + (editor != null ? editor.getFileName() : arg));
+                } catch (IOException e) {
+                    System.err.println("保存失败: " + e.getMessage());
+                    throw e;
+                }
+            }
         }
     }
     
@@ -534,7 +603,7 @@ public class CommandLineApp {
         System.out.println();
         System.out.println("工作区命令:");
         System.out.println("  load <文件>          - 加载文件");
-        System.out.println("  save [文件]          - 保存文件");
+        System.out.println("  save [file|all]      - 保存文件（默认当前文件，all保存所有）");
         System.out.println("  init <文件>          - 创建新文件");
         System.out.println("  close <文件>         - 关闭文件");
         System.out.println("  edit <文件>          - 切换当前文件");
