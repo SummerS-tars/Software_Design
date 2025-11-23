@@ -470,4 +470,97 @@ public class WorkspaceTest {
         assertEquals(1, unsaved.size());
         assertEquals(file2, unsaved.get(0));
     }
+    
+    // ===== 文件名查找测试 =====
+    
+    @Test
+    public void testFindFilesByName_noMatches() {
+        workspace.init("file1.txt");
+        workspace.init("file2.txt");
+        
+        List<String> matches = workspace.findFilesByName("nonexistent.txt");
+        assertTrue(matches.isEmpty());
+    }
+    
+    @Test
+    public void testFindFilesByName_singleMatch() {
+        String file1 = testDir.resolve("test.txt").toString();
+        workspace.init(file1);
+        workspace.init("other.txt");
+        
+        List<String> matches = workspace.findFilesByName("test.txt");
+        assertEquals(1, matches.size());
+        assertEquals(file1, matches.get(0));
+    }
+    
+    @Test
+    public void testFindFilesByName_multipleMatches() {
+        String file1 = testDir.resolve("test.txt").toString();
+        String file2 = testDir.resolve("subdir").resolve("test.txt").toString();
+        
+        workspace.init(file1);
+        workspace.init(file2);
+        workspace.init("other.txt");
+        
+        List<String> matches = workspace.findFilesByName("test.txt");
+        assertEquals(2, matches.size());
+        assertTrue(matches.contains(file1));
+        assertTrue(matches.contains(file2));
+    }
+    
+    @Test
+    public void testFindFilesByName_caseInsensitive() {
+        String file = testDir.resolve("Test.TXT").toString();
+        workspace.init(file);
+        
+        // 测试不同的大小写组合
+        List<String> matches1 = workspace.findFilesByName("test.txt");
+        assertEquals(1, matches1.size());
+        assertEquals(file, matches1.get(0));
+        
+        List<String> matches2 = workspace.findFilesByName("TEST.TXT");
+        assertEquals(1, matches2.size());
+        assertEquals(file, matches2.get(0));
+        
+        List<String> matches3 = workspace.findFilesByName("Test.TXT");
+        assertEquals(1, matches3.size());
+        assertEquals(file, matches3.get(0));
+    }
+    
+    @Test
+    public void testFindFilesByName_emptyString() {
+        workspace.init("file1.txt");
+        workspace.init("file2.txt");
+        
+        List<String> matches = workspace.findFilesByName("");
+        assertTrue(matches.isEmpty());
+    }
+    
+    @Test
+    public void testFindFilesByName_null() {
+        workspace.init("file1.txt");
+        workspace.init("file2.txt");
+        
+        List<String> matches = workspace.findFilesByName(null);
+        assertTrue(matches.isEmpty());
+    }
+    
+    @Test
+    public void testFindFilesByName_afterClose() {
+        String file1 = "test.txt";
+        String file2 = "other.txt";
+        
+        workspace.init(file1);
+        workspace.init(file2);
+        
+        // 关闭一个文件
+        workspace.close(file1);
+        
+        // 应该只找到未关闭的文件
+        List<String> matches = workspace.findFilesByName("test.txt");
+        assertTrue(matches.isEmpty());
+        
+        List<String> matches2 = workspace.findFilesByName("other.txt");
+        assertEquals(1, matches2.size());
+    }
 }
