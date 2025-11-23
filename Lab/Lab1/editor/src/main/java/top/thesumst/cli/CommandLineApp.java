@@ -273,15 +273,21 @@ public class CommandLineApp {
             return;
         }
         
-        if (cmd.getArgCount() < 3) {
-            System.out.println("用法: insert <行号> <列号> <文本>");
+        if (cmd.getArgCount() < 2) {
+            System.out.println("用法: insert <行:列> <文本>");
             return;
         }
         
         try {
-            int line = Integer.parseInt(cmd.getArg(0));
-            int col = Integer.parseInt(cmd.getArg(1));
-            String text = cmd.getArg(2);
+            String[] pos = cmd.getArg(0).split(":");
+            if (pos.length != 2) {
+                System.out.println("位置格式错误，应为 <行:列>");
+                return;
+            }
+            
+            int line = Integer.parseInt(pos[0]);
+            int col = Integer.parseInt(pos[1]);
+            String text = cmd.getArg(1);
             
             InsertCommand command = new InsertCommand(editor.getBuffer(), line, col, text);
             editor.getHistory().push(command);
@@ -299,15 +305,21 @@ public class CommandLineApp {
             return;
         }
         
-        if (cmd.getArgCount() < 3) {
-            System.out.println("用法: delete <行号> <列号> <长度>");
+        if (cmd.getArgCount() < 2) {
+            System.out.println("用法: delete <行:列> <长度>");
             return;
         }
         
         try {
-            int line = Integer.parseInt(cmd.getArg(0));
-            int col = Integer.parseInt(cmd.getArg(1));
-            int length = Integer.parseInt(cmd.getArg(2));
+            String[] pos = cmd.getArg(0).split(":");
+            if (pos.length != 2) {
+                System.out.println("位置格式错误，应为 <行:列>");
+                return;
+            }
+            
+            int line = Integer.parseInt(pos[0]);
+            int col = Integer.parseInt(pos[1]);
+            int length = Integer.parseInt(cmd.getArg(1));
             
             DeleteCommand command = new DeleteCommand(editor.getBuffer(), line, col, length);
             editor.getHistory().push(command);
@@ -325,16 +337,22 @@ public class CommandLineApp {
             return;
         }
         
-        if (cmd.getArgCount() < 4) {
-            System.out.println("用法: replace <行号> <列号> <长度> <新文本>");
+        if (cmd.getArgCount() < 3) {
+            System.out.println("用法: replace <行:列> <长度> <新文本>");
             return;
         }
         
         try {
-            int line = Integer.parseInt(cmd.getArg(0));
-            int col = Integer.parseInt(cmd.getArg(1));
-            int length = Integer.parseInt(cmd.getArg(2));
-            String newText = cmd.getArg(3);
+            String[] pos = cmd.getArg(0).split(":");
+            if (pos.length != 2) {
+                System.out.println("位置格式错误，应为 <行:列>");
+                return;
+            }
+            
+            int line = Integer.parseInt(pos[0]);
+            int col = Integer.parseInt(pos[1]);
+            int length = Integer.parseInt(cmd.getArg(1));
+            String newText = cmd.getArg(2);
             
             // Replace = Delete + Insert
             DeleteCommand deleteCmd = new DeleteCommand(editor.getBuffer(), line, col, length);
@@ -487,9 +505,9 @@ public class CommandLineApp {
         System.out.println();
         System.out.println("编辑命令:");
         System.out.println("  append <文本>        - 追加一行");
-        System.out.println("  insert <行> <列> <文本> - 插入文本");
-        System.out.println("  delete <行> <列> <长度> - 删除文本");
-        System.out.println("  replace <行> <列> <长度> <新文本> - 替换文本");
+        System.out.println("  insert <行:列> <文本> - 插入文本");
+        System.out.println("  delete <行:列> <长度> - 删除文本");
+        System.out.println("  replace <行:列> <长度> <新文本> - 替换文本");
         System.out.println("  show                 - 显示文件内容");
         System.out.println();
         System.out.println("日志命令:");
