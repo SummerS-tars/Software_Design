@@ -381,7 +381,47 @@ public class CommandLineApp {
             return;
         }
         
-        for (int i = 1; i <= buffer.getSize(); i++) {
+        int startLine = 1;
+        int endLine = buffer.getSize();
+        
+        // 如果提供了范围参数
+        if (cmd.getArgCount() > 0) {
+            String range = cmd.getArg(0);
+            String[] parts = range.split(":");
+            
+            if (parts.length != 2) {
+                System.out.println("范围格式错误，应为 <起始行:结束行>");
+                return;
+            }
+            
+            try {
+                startLine = Integer.parseInt(parts[0]);
+                endLine = Integer.parseInt(parts[1]);
+                
+                // 验证范围
+                if (startLine < 1) {
+                    System.out.println("起始行号不能小于1");
+                    return;
+                }
+                
+                if (endLine > buffer.getSize()) {
+                    System.out.println("结束行号超出文件范围 (文件共 " + buffer.getSize() + " 行)");
+                    return;
+                }
+                
+                if (startLine > endLine) {
+                    System.out.println("起始行号不能大于结束行号");
+                    return;
+                }
+                
+            } catch (NumberFormatException e) {
+                System.out.println("行号必须是数字");
+                return;
+            }
+        }
+        
+        // 显示指定范围的行
+        for (int i = startLine; i <= endLine; i++) {
             System.out.println(i + ": " + buffer.getLine(i));
         }
     }
@@ -508,7 +548,7 @@ public class CommandLineApp {
         System.out.println("  insert <行:列> <文本> - 插入文本");
         System.out.println("  delete <行:列> <长度> - 删除文本");
         System.out.println("  replace <行:列> <长度> <新文本> - 替换文本");
-        System.out.println("  show                 - 显示文件内容");
+        System.out.println("  show [起始行:结束行] - 显示文件内容（可指定范围）");
         System.out.println();
         System.out.println("日志命令:");
         System.out.println("  log-on               - 启用日志");
