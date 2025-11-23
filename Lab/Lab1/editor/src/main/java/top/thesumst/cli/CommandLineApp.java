@@ -230,11 +230,57 @@ public class CommandLineApp {
         }
         
         String path = cmd.getArg(0);
+        
+        // 检查文件是否已打开
+        if (!workspace.isFileOpen(path)) {
+            System.out.println("文件未打开: " + path);
+            return;
+        }
+        
+        // 检查文件是否有未保存的更改
+        if (workspace.hasUnsavedChanges(path)) {
+            System.out.println("警告: 文件 '" + path + "' 有未保存的更改");
+            System.out.print("是否保存更改？(y/n/c - 保存/不保存/取消): ");
+            
+            try {
+                String choice = reader.readLine().trim().toLowerCase();
+                
+                switch (choice) {
+                    case "y", "yes" -> {
+                        // 保存文件
+                        try {
+                            workspace.save(path);
+                            System.out.println("已保存文件: " + path);
+                        } catch (IOException e) {
+                            System.err.println("保存失败: " + e.getMessage());
+                            System.out.println("文件未关闭");
+                            return;
+                        }
+                    }
+                    case "n", "no" -> {
+                        // 不保存，直接关闭
+                        System.out.println("放弃更改");
+                    }
+                    case "c", "cancel" -> {
+                        // 取消关闭操作
+                        System.out.println("已取消关闭操作");
+                        return;
+                    }
+                    default -> {
+                        System.out.println("无效的选择，已取消关闭操作");
+                        return;
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("读取输入失败: " + e.getMessage());
+                return;
+            }
+        }
+        
+        // 关闭文件
         boolean success = workspace.close(path);
         if (success) {
             System.out.println("已关闭文件: " + path);
-        } else {
-            System.out.println("文件未打开: " + path);
         }
     }
     
@@ -304,6 +350,65 @@ public class CommandLineApp {
     }
     
     private void cmdExit(ParsedCommand cmd) {
+        // 检查是否有未保存的文件
+        if (workspace.hasUnsavedChanges()) {
+            List<String> unsavedFiles = workspace.getUnsavedFiles();
+            System.out.println("警告: 以下文件有未保存的更改:");
+            for (String file : unsavedFiles) {
+                System.out.println("  - " + file);
+            }
+            System.out.print("是否保存所有更改？(y/n/c - 保存/不保存/取消): ");
+            
+            try {
+                String choice = reader.readLine().trim().toLowerCase();
+                
+                switch (choice) {
+                    case "y", "yes" -> {
+                        // 保存所有文件
+                        int successCount = 0;
+                        int failCount = 0;
+                        
+                        for (String filePath : unsavedFiles) {
+                            try {
+                                workspace.save(filePath);
+                                successCount++;
+                            } catch (IOException e) {
+                                System.err.println("保存文件失败 (" + filePath + "): " + e.getMessage());
+                                failCount++;
+                            }
+                        }
+                        
+                        System.out.printf("保存完成: 成功 %d 个，失败 %d 个%n", successCount, failCount);
+                        
+                        if (failCount > 0) {
+                            System.out.print("部分文件保存失败，是否仍要退出？(y/n): ");
+                            String confirmExit = reader.readLine().trim().toLowerCase();
+                            if (!confirmExit.equals("y") && !confirmExit.equals("yes")) {
+                                System.out.println("已取消退出");
+                                return;
+                            }
+                        }
+                    }
+                    case "n", "no" -> {
+                        // 不保存，直接退出
+                        System.out.println("放弃所有未保存的更改");
+                    }
+                    case "c", "cancel" -> {
+                        // 取消退出操作
+                        System.out.println("已取消退出");
+                        return;
+                    }
+                    default -> {
+                        System.out.println("无效的选择，已取消退出");
+                        return;
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("读取输入失败: " + e.getMessage());
+                return;
+            }
+        }
+        
         // 保存工作区状态
         try {
             workspace.saveState();

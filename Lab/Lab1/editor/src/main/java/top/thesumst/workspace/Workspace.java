@@ -247,6 +247,44 @@ public class Workspace {
         activeEditor = null;
     }
     
+    /**
+     * 检查是否有未保存的文件
+     * @return true 如果有未保存的文件
+     */
+    public boolean hasUnsavedChanges() {
+        for (EditorInstance editor : files.values()) {
+            if (editor.isModified()) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * 获取所有未保存的文件路径列表
+     * @return 未保存的文件路径列表
+     */
+    public List<String> getUnsavedFiles() {
+        List<String> unsavedFiles = new ArrayList<>();
+        for (EditorInstance editor : files.values()) {
+            if (editor.isModified()) {
+                unsavedFiles.add(editor.getFilePath());
+            }
+        }
+        return unsavedFiles;
+    }
+    
+    /**
+     * 检查指定文件是否有未保存的更改
+     * @param path 文件路径
+     * @return true 如果文件有未保存的更改
+     */
+    public boolean hasUnsavedChanges(String path) {
+        String normalizedPath = normalizePath(path);
+        EditorInstance editor = files.get(normalizedPath);
+        return editor != null && editor.isModified();
+    }
+    
     // ===== 日志管理 =====
     
     /**
