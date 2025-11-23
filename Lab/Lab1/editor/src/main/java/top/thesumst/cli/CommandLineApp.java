@@ -225,21 +225,57 @@ public class CommandLineApp {
     
     private void cmdClose(ParsedCommand cmd) {
         if (cmd.getArgCount() < 1) {
-            System.out.println("用法: close <文件路径>");
+            System.out.println("用法: close <文件路径或文件名>");
             return;
         }
         
-        String path = cmd.getArg(0);
+        String input = cmd.getArg(0);
+        String pathToClose = null;
         
-        // 检查文件是否已打开
-        if (!workspace.isFileOpen(path)) {
-            System.out.println("文件未打开: " + path);
-            return;
+        // 1. 先尝试精确匹配（完整路径）
+        if (workspace.isFileOpen(input)) {
+            pathToClose = input;
+        } else {
+            // 2. 按文件名查找
+            List<String> matches = workspace.findFilesByName(input);
+            
+            if (matches.isEmpty()) {
+                System.out.println("文件未打开: " + input);
+                return;
+            } else if (matches.size() == 1) {
+                // 只有一个匹配
+                pathToClose = matches.get(0);
+            } else {
+                // 多个匹配，让用户选择
+                System.out.println("当前打开了多个名为 \"" + input + "\" 的文件：");
+                for (int i = 0; i < matches.size(); i++) {
+                    System.out.printf("%d. %s%n", i + 1, matches.get(i));
+                }
+                System.out.print("请输入要操作的文件编号: ");
+                
+                try {
+                    String choice = reader.readLine().trim();
+                    int index = Integer.parseInt(choice) - 1;
+                    
+                    if (index >= 0 && index < matches.size()) {
+                        pathToClose = matches.get(index);
+                    } else {
+                        System.out.println("无效的编号");
+                        return;
+                    }
+                } catch (NumberFormatException e) {
+                    System.out.println("请输入有效的数字");
+                    return;
+                } catch (IOException e) {
+                    System.err.println("读取输入失败: " + e.getMessage());
+                    return;
+                }
+            }
         }
         
         // 检查文件是否有未保存的更改
-        if (workspace.hasUnsavedChanges(path)) {
-            System.out.println("警告: 文件 '" + path + "' 有未保存的更改");
+        if (workspace.hasUnsavedChanges(pathToClose)) {
+            System.out.println("警告: 文件 '" + pathToClose + "' 有未保存的更改");
             System.out.print("是否保存更改？(y/n/c - 保存/不保存/取消): ");
             
             try {
@@ -249,8 +285,8 @@ public class CommandLineApp {
                     case "y", "yes" -> {
                         // 保存文件
                         try {
-                            workspace.save(path);
-                            System.out.println("已保存文件: " + path);
+                            workspace.save(pathToClose);
+                            System.out.println("已保存文件: " + pathToClose);
                         } catch (IOException e) {
                             System.err.println("保存失败: " + e.getMessage());
                             System.out.println("文件未关闭");
@@ -278,24 +314,60 @@ public class CommandLineApp {
         }
         
         // 关闭文件
-        boolean success = workspace.close(path);
+        boolean success = workspace.close(pathToClose);
         if (success) {
-            System.out.println("已关闭文件: " + path);
+            System.out.println("已关闭文件: " + pathToClose);
         }
     }
     
     private void cmdEdit(ParsedCommand cmd) {
         if (cmd.getArgCount() < 1) {
-            System.out.println("用法: edit <文件路径>");
+            System.out.println("用法: edit <文件路径或文件名>");
             return;
         }
         
-        String path = cmd.getArg(0);
-        boolean success = workspace.activate(path);
-        if (success) {
-            System.out.println("已切换到文件: " + path);
+        String input = cmd.getArg(0);
+        
+        // 1. 先尝试精确匹配（完整路径）
+        if (workspace.activate(input)) {
+            System.out.println("已切换到文件: " + input);
+            return;
+        }
+        
+        // 2. 按文件名查找
+        List<String> matches = workspace.findFilesByName(input);
+        
+        if (matches.isEmpty()) {
+            System.out.println("文件未打开: " + input);
+        } else if (matches.size() == 1) {
+            // 只有一个匹配，直接切换
+            String matchedPath = matches.get(0);
+            workspace.activate(matchedPath);
+            System.out.println("已切换到文件: " + matchedPath);
         } else {
-            System.out.println("文件未打开: " + path);
+            // 多个匹配，让用户选择
+            System.out.println("当前打开了多个名为 \"" + input + "\" 的文件：");
+            for (int i = 0; i < matches.size(); i++) {
+                System.out.printf("%d. %s%n", i + 1, matches.get(i));
+            }
+            System.out.print("请输入要操作的文件编号: ");
+            
+            try {
+                String choice = reader.readLine().trim();
+                int index = Integer.parseInt(choice) - 1;
+                
+                if (index >= 0 && index < matches.size()) {
+                    String selectedPath = matches.get(index);
+                    workspace.activate(selectedPath);
+                    System.out.println("已切换到文件: " + selectedPath);
+                } else {
+                    System.out.println("无效的编号");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("请输入有效的数字");
+            } catch (IOException e) {
+                System.err.println("读取输入失败: " + e.getMessage());
+            }
         }
     }
     
@@ -309,11 +381,24 @@ public class CommandLineApp {
         System.out.println("打开的文件列表:");
         EditorInstance active = workspace.getActiveEditor();
         
+        // 找出最长的文件名，用于对齐
+        int maxFileNameLen = 0;
         for (String path : files) {
             EditorInstance editor = workspace.getEditor(path);
-            String marker = (editor == active) ? "> " : "  ";
+            maxFileNameLen = Math.max(maxFileNameLen, editor.getFileName().length());
+        }
+        
+        for (String path : files) {
+            EditorInstance editor = workspace.getEditor(path);
+            String marker = (editor == active) ? "*" : " ";
             String modified = editor.isModified() ? " [modified]" : "";
-            System.out.println(marker + editor.getFileName() + modified);
+            
+            // 格式：* 文件名 (完整路径) [modified]
+            System.out.printf("%s %-" + maxFileNameLen + "s  (%s)%s%n", 
+                marker, 
+                editor.getFileName(), 
+                editor.getFilePath(),
+                modified);
         }
     }
     

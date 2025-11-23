@@ -285,6 +285,32 @@ public class Workspace {
         return editor != null && editor.isModified();
     }
     
+    /**
+     * 根据文件名查找匹配的文件路径
+     * 支持不区分大小写的匹配
+     * @param fileName 要查找的文件名
+     * @return 匹配的文件路径列表
+     */
+    public List<String> findFilesByName(String fileName) {
+        List<String> matches = new ArrayList<>();
+        
+        if (fileName == null || fileName.isEmpty()) {
+            return matches;
+        }
+        
+        for (String path : files.keySet()) {
+            EditorInstance editor = files.get(path);
+            String editorFileName = editor.getFileName();
+            
+            // 检查文件名是否匹配（不区分大小写）
+            if (editorFileName.equalsIgnoreCase(fileName)) {
+                matches.add(path);
+            }
+        }
+        
+        return matches;
+    }
+    
     // ===== 日志管理 =====
     
     /**
