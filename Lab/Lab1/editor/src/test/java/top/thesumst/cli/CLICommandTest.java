@@ -325,4 +325,213 @@ public class CLICommandTest {
         assertEquals(15, endLine);
         assertTrue(startLine <= endLine);
     }
+    
+    // ===== Save 命令测试 =====
+    
+    @Test
+    public void testSaveCurrentFile() throws IOException {
+        // 创建并编辑文件
+        workspace.init(TEST_FILE);
+        EditorInstance editor = workspace.getActiveEditor();
+        TextBuffer buffer = editor.getBuffer();
+        
+        buffer.append("Line 1");
+        buffer.append("Line 2");
+        
+        // 保存当前文件
+        workspace.saveActive();
+        
+        // 验证文件已保存
+        assertTrue(Files.exists(Paths.get(TEST_FILE)));
+        
+        // 验证内容正确
+        java.util.List<String> lines = Files.readAllLines(Paths.get(TEST_FILE));
+        assertEquals(2, lines.size());
+        assertEquals("Line 1", lines.get(0));
+        assertEquals("Line 2", lines.get(1));
+        
+        // 验证修改标记已清除
+        assertFalse(editor.isModified());
+    }
+    
+    @Test
+    public void testSaveSpecificFile() throws IOException {
+        String file1 = TEST_DIR + "/file1.txt";
+        String file2 = TEST_DIR + "/file2.txt";
+        
+        // 创建两个文件
+        workspace.init(file1);
+        workspace.getActiveEditor().getBuffer().append("Content 1");
+        
+        workspace.init(file2);
+        workspace.getActiveEditor().getBuffer().append("Content 2");
+        
+        // 保存指定文件
+        workspace.save(file1);
+        
+        // 验证 file1 已保存
+        assertTrue(Files.exists(Paths.get(file1)));
+        java.util.List<String> lines1 = Files.readAllLines(Paths.get(file1));
+        assertEquals(1, lines1.size());
+        assertEquals("Content 1", lines1.get(0));
+        
+        // file2 不应该自动保存
+        assertFalse(Files.exists(Paths.get(file2)));
+        
+        // 清理
+        new File(file1).delete();
+    }
+    
+    @Test
+    public void testSaveAllFiles() throws IOException {
+        String file1 = TEST_DIR + "/file1.txt";
+        String file2 = TEST_DIR + "/file2.txt";
+        String file3 = TEST_DIR + "/file3.txt";
+        
+        // 创建三个文件并添加内容
+        workspace.init(file1);
+        workspace.getActiveEditor().getBuffer().append("Content in file 1");
+        
+        workspace.init(file2);
+        workspace.getActiveEditor().getBuffer().append("Content in file 2");
+        
+        workspace.init(file3);
+        workspace.getActiveEditor().getBuffer().append("Content in file 3");
+        
+        // 获取所有打开的文件
+        java.util.List<String> openFiles = workspace.getOpenFiles();
+        assertEquals(3, openFiles.size());
+        
+        // 保存所有文件
+        for (String filePath : openFiles) {
+            workspace.save(filePath);
+        }
+        
+        // 验证所有文件都已保存
+        assertTrue(Files.exists(Paths.get(file1)));
+        assertTrue(Files.exists(Paths.get(file2)));
+        assertTrue(Files.exists(Paths.get(file3)));
+        
+        // 验证内容正确
+        assertEquals("Content in file 1", Files.readAllLines(Paths.get(file1)).get(0));
+        assertEquals("Content in file 2", Files.readAllLines(Paths.get(file2)).get(0));
+        assertEquals("Content in file 3", Files.readAllLines(Paths.get(file3)).get(0));
+        
+        // 验证所有文件的修改标记已清除
+        for (String filePath : openFiles) {
+            EditorInstance editor = workspace.getEditor(filePath);
+            assertFalse(editor.isModified());
+        }
+        
+        // 清理
+        new File(file1).delete();
+        new File(file2).delete();
+        new File(file3).delete();
+    }
+    
+    @Test
+    public void testSaveAllWithModifiedAndUnmodified() throws IOException {
+        String file1 = TEST_DIR + "/modified.txt";
+        String file2 = TEST_DIR + "/unmodified.txt";
+        
+        // 创建第一个文件并保存
+        workspace.init(file1);
+        EditorInstance editor1 = workspace.getActiveEditor();
+        editor1.getBuffer().append("Original content");
+        editor1.markAsModified();
+        workspace.save(file1);
+        
+        // 创建第二个文件但不保存
+        workspace.init(file2);
+        EditorInstance editor2 = workspace.getActiveEditor();
+        editor2.getBuffer().append("New content");
+        editor2.markAsModified();
+        
+        // 修改第一个文件
+        workspace.activate(file1);
+        editor1.getBuffer().append("Modified content");
+        editor1.markAsModified();
+        
+        // 验证修改状态
+        assertTrue(workspace.getEditor(file1).isModified());
+        assertTrue(workspace.getEditor(file2).isModified());
+        
+        // 保存所有文件
+        for (String filePath : workspace.getOpenFiles()) {
+            workspace.save(filePath);
+        }
+        
+        // 验证所有修改标记已清除
+        assertFalse(workspace.getEditor(file1).isModified());
+        assertFalse(workspace.getEditor(file2).isModified());
+        
+        // 验证文件内容
+        java.util.List<String> lines1 = Files.readAllLines(Paths.get(file1));
+        assertEquals(2, lines1.size());
+        assertEquals("Original content", lines1.get(0));
+        assertEquals("Modified content", lines1.get(1));
+        
+        // 清理
+        new File(file1).delete();
+        new File(file2).delete();
+    }
+    
+    @Test
+    public void testSaveClearsModifiedFlag() throws IOException {
+        workspace.init(TEST_FILE);
+        EditorInstance editor = workspace.getActiveEditor();
+        TextBuffer buffer = editor.getBuffer();
+        
+        // 添加内容并标记为已修改
+        buffer.append("Test content");
+        editor.markAsModified();
+        
+        // 验证修改标记
+        assertTrue(editor.isModified());
+        
+        // 保存文件
+        workspace.saveActive();
+        
+        // 验证修改标记已清除
+        assertFalse(editor.isModified());
+        
+        // 再次修改
+        buffer.append("More content");
+        editor.markAsModified();
+        assertTrue(editor.isModified());
+        
+        // 再次保存
+        workspace.saveActive();
+        assertFalse(editor.isModified());
+    }
+    
+    @Test(expected = IllegalStateException.class)
+    public void testSaveWithoutActiveEditor() throws IOException {
+        // 没有活动编辑器时保存应该抛出异常
+        workspace.saveActive();
+    }
+    
+    @Test
+    public void testSaveCreatesParentDirectory() throws IOException {
+        String nestedFile = TEST_DIR + "/nested/deep/file.txt";
+        
+        // 创建嵌套路径的文件
+        workspace.init(nestedFile);
+        workspace.getActiveEditor().getBuffer().append("Nested content");
+        
+        // 保存文件（应该自动创建父目录）
+        workspace.save(nestedFile);
+        
+        // 验证文件和目录都已创建
+        assertTrue(Files.exists(Paths.get(nestedFile)));
+        assertTrue(Files.isDirectory(Paths.get(TEST_DIR + "/nested/deep")));
+        
+        // 验证内容
+        assertEquals("Nested content", Files.readAllLines(Paths.get(nestedFile)).get(0));
+        
+        // 清理
+        new File(nestedFile).delete();
+        new File(TEST_DIR + "/nested/deep").delete();
+        new File(TEST_DIR + "/nested").delete();
+    }
 }
