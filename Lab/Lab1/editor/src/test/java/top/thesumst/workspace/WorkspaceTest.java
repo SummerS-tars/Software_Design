@@ -357,4 +357,117 @@ public class WorkspaceTest {
         assertEquals(0, workspace.getOpenFileCount());
         assertNull(workspace.getActiveEditor());
     }
+    
+    // ===== 未保存更改检测测试 =====
+    
+    @Test
+    public void testHasUnsavedChanges_noChanges() {
+        workspace.init("file1.txt");
+        workspace.init("file2.txt");
+        
+        assertFalse(workspace.hasUnsavedChanges());
+    }
+    
+    @Test
+    public void testHasUnsavedChanges_withChanges() {
+        EditorInstance editor1 = workspace.init("file1.txt");
+        workspace.init("file2.txt");
+        
+        // 修改第一个文件
+        editor1.getBuffer().append("Some content");
+        editor1.markAsModified();
+        
+        assertTrue(workspace.hasUnsavedChanges());
+    }
+    
+    @Test
+    public void testHasUnsavedChanges_specificFile() {
+        EditorInstance editor1 = workspace.init("file1.txt");
+        workspace.init("file2.txt");
+        
+        // 只修改第一个文件
+        editor1.getBuffer().append("Modified");
+        editor1.markAsModified();
+        
+        assertTrue(workspace.hasUnsavedChanges("file1.txt"));
+        assertFalse(workspace.hasUnsavedChanges("file2.txt"));
+    }
+    
+    @Test
+    public void testGetUnsavedFiles_empty() {
+        workspace.init("file1.txt");
+        workspace.init("file2.txt");
+        
+        List<String> unsaved = workspace.getUnsavedFiles();
+        assertTrue(unsaved.isEmpty());
+    }
+    
+    @Test
+    public void testGetUnsavedFiles_withChanges() {
+        EditorInstance editor1 = workspace.init("file1.txt");
+        EditorInstance editor2 = workspace.init("file2.txt");
+        EditorInstance editor3 = workspace.init("file3.txt");
+        
+        // 修改文件1和文件3
+        editor1.getBuffer().append("Content 1");
+        editor1.markAsModified();
+        
+        editor3.getBuffer().append("Content 3");
+        editor3.markAsModified();
+        
+        List<String> unsaved = workspace.getUnsavedFiles();
+        assertEquals(2, unsaved.size());
+        assertTrue(unsaved.contains(editor1.getFilePath()));
+        assertTrue(unsaved.contains(editor3.getFilePath()));
+        assertFalse(unsaved.contains(editor2.getFilePath()));
+    }
+    
+    @Test
+    public void testHasUnsavedChanges_afterSave() throws IOException {
+        String testFile = testDir.resolve("test.txt").toString();
+        EditorInstance editor = workspace.init(testFile);
+        
+        // 修改文件
+        editor.getBuffer().append("Test content");
+        editor.markAsModified();
+        
+        assertTrue(workspace.hasUnsavedChanges());
+        
+        // 保存文件
+        workspace.save(testFile);
+        
+        // 保存后应该没有未保存的更改
+        assertFalse(workspace.hasUnsavedChanges());
+        assertFalse(workspace.hasUnsavedChanges(testFile));
+    }
+    
+    @Test
+    public void testHasUnsavedChanges_multipleFilesAfterPartialSave() throws IOException {
+        String file1 = testDir.resolve("file1.txt").toString();
+        String file2 = testDir.resolve("file2.txt").toString();
+        
+        EditorInstance editor1 = workspace.init(file1);
+        EditorInstance editor2 = workspace.init(file2);
+        
+        // 修改两个文件
+        editor1.getBuffer().append("Content 1");
+        editor1.markAsModified();
+        
+        editor2.getBuffer().append("Content 2");
+        editor2.markAsModified();
+        
+        assertTrue(workspace.hasUnsavedChanges());
+        
+        // 只保存第一个文件
+        workspace.save(file1);
+        
+        // 应该还有未保存的更改（第二个文件）
+        assertTrue(workspace.hasUnsavedChanges());
+        assertFalse(workspace.hasUnsavedChanges(file1));
+        assertTrue(workspace.hasUnsavedChanges(file2));
+        
+        List<String> unsaved = workspace.getUnsavedFiles();
+        assertEquals(1, unsaved.size());
+        assertEquals(file2, unsaved.get(0));
+    }
 }
