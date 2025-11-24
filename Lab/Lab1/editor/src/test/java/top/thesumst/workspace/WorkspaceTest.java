@@ -86,12 +86,13 @@ public class WorkspaceTest {
     @Test
     public void testInitNewFile() {
         EditorInstance editor = workspace.init("newfile.txt");
-        
+
         assertNotNull(editor);
         assertEquals(workspace.getActiveEditor(), editor);
         assertEquals(1, workspace.getOpenFileCount());
         assertEquals(0, editor.getBuffer().getSize()); // 空缓冲区
-        assertFalse(editor.isModified());
+        // 新语义：init 后应标记为已修改，触发退出时的未保存提示
+        assertTrue(editor.isModified());
     }
     
     @Test
@@ -102,6 +103,18 @@ public class WorkspaceTest {
         
         assertEquals(3, workspace.getOpenFileCount());
         assertEquals("file3.txt", workspace.getActiveEditor().getFileName());
+    }
+
+    @Test
+    public void testInitWithLog() {
+        EditorInstance editor = workspace.initWithLog("logfile.txt");
+        assertNotNull(editor);
+        assertEquals("logfile.txt", editor.getFileName());
+        assertEquals(1, workspace.getOpenFileCount());
+        assertEquals(1, editor.getBuffer().getSize());
+        assertEquals("#log", editor.getBuffer().getLine(1));
+        assertTrue("with-log 初始化后应标记为已修改", editor.isModified());
+        assertTrue("with-log 初始化后应启用日志", editor.isLoggingEnabled());
     }
     
     // ===== Workspace load 测试 =====
@@ -362,16 +375,20 @@ public class WorkspaceTest {
     
     @Test
     public void testHasUnsavedChanges_noChanges() {
-        workspace.init("file1.txt");
-        workspace.init("file2.txt");
-        
+        EditorInstance e1 = workspace.init("file1.txt");
+        EditorInstance e2 = workspace.init("file2.txt");
+        // 新语义：init 后即视为已修改。此测试希望验证“无未保存更改”的场景，手动清除修改标记。
+        e1.markAsSaved();
+        e2.markAsSaved();
         assertFalse(workspace.hasUnsavedChanges());
     }
     
     @Test
     public void testHasUnsavedChanges_withChanges() {
         EditorInstance editor1 = workspace.init("file1.txt");
-        workspace.init("file2.txt");
+        EditorInstance editor2 = workspace.init("file2.txt");
+        // 仅模拟第一个文件被修改，第二个文件重置为未修改
+        editor2.markAsSaved();
         
         // 修改第一个文件
         editor1.getBuffer().append("Some content");
@@ -383,7 +400,9 @@ public class WorkspaceTest {
     @Test
     public void testHasUnsavedChanges_specificFile() {
         EditorInstance editor1 = workspace.init("file1.txt");
-        workspace.init("file2.txt");
+        EditorInstance editor2 = workspace.init("file2.txt");
+        // 重置第二个文件为未修改，保持测试语义：只有 file1 有更改
+        editor2.markAsSaved();
         
         // 只修改第一个文件
         editor1.getBuffer().append("Modified");
@@ -395,9 +414,10 @@ public class WorkspaceTest {
     
     @Test
     public void testGetUnsavedFiles_empty() {
-        workspace.init("file1.txt");
-        workspace.init("file2.txt");
-        
+        EditorInstance e1 = workspace.init("file1.txt");
+        EditorInstance e2 = workspace.init("file2.txt");
+        e1.markAsSaved();
+        e2.markAsSaved();
         List<String> unsaved = workspace.getUnsavedFiles();
         assertTrue(unsaved.isEmpty());
     }
@@ -407,6 +427,8 @@ public class WorkspaceTest {
         EditorInstance editor1 = workspace.init("file1.txt");
         EditorInstance editor2 = workspace.init("file2.txt");
         EditorInstance editor3 = workspace.init("file3.txt");
+        // 保持 editor2 未修改状态
+        editor2.markAsSaved();
         
         // 修改文件1和文件3
         editor1.getBuffer().append("Content 1");
