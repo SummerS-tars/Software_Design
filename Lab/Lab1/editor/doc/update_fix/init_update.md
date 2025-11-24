@@ -22,15 +22,15 @@ with-log (可选)：是否在第⼀⾏添加 # log 以启⽤⽇志
 目前已支持可选参数 `with-log`：
 
 用法示例:
-`init sample.txt`           -> 创建空缓冲区，不启用日志（保持未保存状态但当前实现不自动标记修改）
+`init sample.txt`           -> 创建空缓冲区，标记为已修改（退出时会提示保存）
 `init sample.txt with-log`  -> 创建并在首行写入 `#log`，自动启用日志记录，标记为已修改（需执行 save）
 
 行为说明:  
 
 1. with-log: 创建后缓冲区首行是 `#log`，已开启日志（等价于后续执行 log-on），并设置修改标记。
-2. 无 with-log: 创建空缓冲区，未开启日志，当前实现保持“未修改”标记（与课程描述“新缓冲区标记为已修改”略有差异，后续可统一调整）。
-3. 若希望严格符合课程要求（init 均标记为已修改），可将 Workspace.init 中的 markAsSaved 改为 markAsModified，并同步更新相关测试。
-4. 未来改进: init 若目标文件已存在，可选择直接报错或引导使用 load；目前仍允许与现有文件同名以保持兼容。
+2. 无 with-log: 创建空缓冲区，未启用日志，但已标记为“已修改”，会在 exit/close 时进入未保存提示流程。
+3. 已完成语义更新：Workspace.init 使用 markAsModified。
+4. 未来改进: init 若目标文件已存在，可选择直接报错或引导使用 load；目前仍允许与现有文件同名以保持兼容（待明确课程是否强制禁止覆盖）。
 
 测试覆盖:
 新增 WorkspaceTest.testInitWithLog 验证首行内容、修改标记与日志启用状态。
