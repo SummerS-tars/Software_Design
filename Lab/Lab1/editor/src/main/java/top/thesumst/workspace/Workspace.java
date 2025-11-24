@@ -105,8 +105,9 @@ public class Workspace {
         }
         
         // 创建新的编辑器实例（空缓冲区）
-        EditorInstance editor = new EditorInstance(normalizedPath);
-        editor.markAsSaved(); // 保留原语义：init 后暂不视为已修改（与文档期望稍有差异）
+    EditorInstance editor = new EditorInstance(normalizedPath);
+    // 语义更新：init 后直接标记为已修改，便于退出时提示保存（符合课程“新缓冲区标记为已修改”要求）
+    editor.markAsModified();
         
         // 添加到工作区
         files.put(normalizedPath, editor);
