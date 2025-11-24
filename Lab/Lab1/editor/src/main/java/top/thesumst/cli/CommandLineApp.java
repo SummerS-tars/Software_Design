@@ -214,13 +214,19 @@ public class CommandLineApp {
     
     private void cmdInit(ParsedCommand cmd) {
         if (cmd.getArgCount() < 1) {
-            System.out.println("用法: init <文件路径>");
+            System.out.println("用法: init <文件路径> [with-log]");
             return;
         }
-        
+
         String path = cmd.getArg(0);
-        EditorInstance editor = workspace.init(path);
-        System.out.println("已创建文件: " + editor.getFileName());
+        boolean withLog = cmd.getArgCount() > 1 && "with-log".equalsIgnoreCase(cmd.getArg(1));
+
+        EditorInstance editor = withLog ? workspace.initWithLog(path) : workspace.init(path);
+        if (withLog) {
+            System.out.println("已创建文件并启用日志: " + editor.getFileName());
+        } else {
+            System.out.println("已创建文件: " + editor.getFileName());
+        }
     }
     
     private void cmdClose(ParsedCommand cmd) {
@@ -794,7 +800,7 @@ public class CommandLineApp {
         System.out.println("工作区命令:");
         System.out.println("  load <文件>          - 加载文件");
         System.out.println("  save [file|all]      - 保存文件（默认当前文件，all保存所有）");
-        System.out.println("  init <文件>          - 创建新文件");
+    System.out.println("  init <文件> [with-log] - 创建新文件（可开启日志）");
         System.out.println("  close <文件>         - 关闭文件");
         System.out.println("  edit <文件>          - 切换当前文件");
         System.out.println("  editor-list          - 列出打开的文件");
