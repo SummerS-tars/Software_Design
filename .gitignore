@@ -1,2 +1,8 @@
 # build
 **/target/
+
+# others
+
+**/.github/
+**/**.zip
+**/**.pdf
