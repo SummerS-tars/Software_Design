@@ -47,6 +47,23 @@ public class TextBuffer {
     }
 
     /**
+     * 删除末尾的若干行（用于撤销 append 操作）
+     * @param count 要删除的行数，必须 >=0 且 <= 当前行数
+     * @throws IllegalArgumentException 如果 count 非法
+     */
+    public void removeLastLines(int count) {
+        if (count < 0) {
+            throw new IllegalArgumentException("count 不能为负数: " + count);
+        }
+        if (count > lines.size()) {
+            throw new IllegalArgumentException("无法删除 " + count + " 行，当前仅有 " + lines.size() + " 行");
+        }
+        for (int i = 0; i < count; i++) {
+            lines.remove(lines.size() - 1);
+        }
+    }
+
+    /**
      * 在指定位置插入文本
      * @param line 行号（从1开始）
      * @param col 列号（从1开始）

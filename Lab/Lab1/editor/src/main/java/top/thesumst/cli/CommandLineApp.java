@@ -5,6 +5,7 @@ import top.thesumst.workspace.EditorInstance;
 import top.thesumst.engine.TextBuffer;
 import top.thesumst.command.InsertCommand;
 import top.thesumst.command.DeleteCommand;
+import top.thesumst.command.AppendCommand;
 import top.thesumst.cli.CommandParser.ParsedCommand;
 
 import java.io.BufferedReader;
@@ -525,16 +526,21 @@ public class CommandLineApp {
             System.out.println("没有活动的编辑器");
             return;
         }
-        
+
         if (cmd.getArgCount() < 1) {
             System.out.println("用法: append <文本>");
             return;
         }
-        
+
         String text = cmd.getArg(0);
-        editor.getBuffer().append(text);
-        editor.markAsModified();
-        System.out.println("已追加文本");
+        try {
+            AppendCommand command = new AppendCommand(editor.getBuffer(), text);
+            editor.getHistory().push(command);
+            editor.markAsModified();
+            System.out.println("已追加文本");
+        } catch (Exception e) {
+            System.out.println("追加失败: " + e.getMessage());
+        }
     }
     
     private void cmdInsert(ParsedCommand cmd) {
