@@ -130,6 +130,48 @@ public class TextBufferTest {
         assertEquals("Helo", buffer.getLine(1));
     }
 
+    // ===== 新增：空行与零长度删除场景 =====
+
+    @Test
+    public void testDeleteZeroLengthOnEmptyLine() {
+        buffer.append("");
+        // 零长度删除应为 no-op
+        buffer.delete(1, 1, 0);
+        assertEquals("", buffer.getLine(1));
+    }
+
+    @Test
+    public void testDeletePositiveLengthOnEmptyLineRemovesLine() {
+        buffer.append("");
+        buffer.append("B");
+        assertEquals(2, buffer.getSize());
+        buffer.delete(1, 1, 1); // 空行删除正长度 -> 删除整行
+        assertEquals(1, buffer.getSize());
+        assertEquals("B", buffer.getLine(1));
+    }
+
+    @Test
+    public void testDeleteZeroLengthMiddleOfLine() {
+        buffer.append("ABCDE");
+        buffer.delete(1, 3, 0); // 不改变内容
+        assertEquals("ABCDE", buffer.getLine(1));
+    }
+
+    @Test
+    public void testDeleteZeroLengthAtEndOfLine() {
+        buffer.append("XYZ");
+        buffer.delete(1, 4, 0); // 行尾后位置（length+1）允许零长度删除
+        assertEquals("XYZ", buffer.getLine(1));
+    }
+
+    @Test
+    public void testDeleteLastEmptyLineRemovesBuffer() {
+        buffer.append("");
+        assertEquals(1, buffer.getSize());
+        buffer.delete(1, 1, 1);
+        assertEquals(0, buffer.getSize());
+    }
+
     // ===== 边界测试 =====
     
     @Test(expected = IndexOutOfBoundsException.class)
