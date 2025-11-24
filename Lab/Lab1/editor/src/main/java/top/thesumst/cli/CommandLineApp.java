@@ -230,51 +230,57 @@ public class CommandLineApp {
     }
     
     private void cmdClose(ParsedCommand cmd) {
-        if (cmd.getArgCount() < 1) {
-            System.out.println("用法: close <文件路径或文件名>");
-            return;
-        }
-        
-        String input = cmd.getArg(0);
         String pathToClose = null;
-        
-        // 1. 先尝试精确匹配（完整路径）
-        if (workspace.isFileOpen(input)) {
-            pathToClose = input;
-        } else {
-            // 2. 按文件名查找
-            List<String> matches = workspace.findFilesByName(input);
-            
-            if (matches.isEmpty()) {
-                System.out.println("文件未打开: " + input);
+
+        if (cmd.getArgCount() < 1) {
+            // 没有参数时，关闭当前活动文件
+            EditorInstance active = workspace.getActiveEditor();
+            if (active == null) {
+                System.out.println("没有活动的编辑器");
                 return;
-            } else if (matches.size() == 1) {
-                // 只有一个匹配
-                pathToClose = matches.get(0);
+            }
+            pathToClose = active.getFilePath();
+        } else {
+            String input = cmd.getArg(0);
+            
+            // 1. 先尝试精确匹配（完整路径）
+            if (workspace.isFileOpen(input)) {
+                pathToClose = input;
             } else {
-                // 多个匹配，让用户选择
-                System.out.println("当前打开了多个名为 \"" + input + "\" 的文件：");
-                for (int i = 0; i < matches.size(); i++) {
-                    System.out.printf("%d. %s%n", i + 1, matches.get(i));
-                }
-                System.out.print("请输入要操作的文件编号: ");
+                // 2. 按文件名查找
+                List<String> matches = workspace.findFilesByName(input);
                 
-                try {
-                    String choice = reader.readLine().trim();
-                    int index = Integer.parseInt(choice) - 1;
+                if (matches.isEmpty()) {
+                    System.out.println("文件未打开: " + input);
+                    return;
+                } else if (matches.size() == 1) {
+                    // 只有一个匹配
+                    pathToClose = matches.get(0);
+                } else {
+                    // 多个匹配，让用户选择
+                    System.out.println("当前打开了多个名为 \"" + input + "\" 的文件：");
+                    for (int i = 0; i < matches.size(); i++) {
+                        System.out.printf("%d. %s%n", i + 1, matches.get(i));
+                    }
+                    System.out.print("请输入要操作的文件编号: ");
                     
-                    if (index >= 0 && index < matches.size()) {
-                        pathToClose = matches.get(index);
-                    } else {
-                        System.out.println("无效的编号");
+                    try {
+                        String choice = reader.readLine().trim();
+                        int index = Integer.parseInt(choice) - 1;
+                        
+                        if (index >= 0 && index < matches.size()) {
+                            pathToClose = matches.get(index);
+                        } else {
+                            System.out.println("无效的编号");
+                            return;
+                        }
+                    } catch (NumberFormatException e) {
+                        System.out.println("请输入有效的数字");
+                        return;
+                    } catch (IOException e) {
+                        System.err.println("读取输入失败: " + e.getMessage());
                         return;
                     }
-                } catch (NumberFormatException e) {
-                    System.out.println("请输入有效的数字");
-                    return;
-                } catch (IOException e) {
-                    System.err.println("读取输入失败: " + e.getMessage());
-                    return;
                 }
             }
         }
@@ -699,41 +705,146 @@ public class CommandLineApp {
     // ===== 日志命令 =====
     
     private void cmdLogOn(ParsedCommand cmd) {
-        EditorInstance editor = workspace.getActiveEditor();
-        if (editor == null) {
-            System.out.println("没有活动的编辑器");
-            return;
+        EditorInstance target = null;
+        if (cmd.getArgCount() > 0) {
+            String input = cmd.getArg(0);
+            if (workspace.isFileOpen(input)) {
+                target = workspace.getEditor(input);
+            } else {
+                List<String> matches = workspace.findFilesByName(input);
+                if (matches.isEmpty()) {
+                    System.out.println("文件未打开: " + input);
+                    return;
+                } else if (matches.size() == 1) {
+                    target = workspace.getEditor(matches.get(0));
+                } else {
+                    System.out.println("当前打开了多个名为 \"" + input + "\" 的文件：");
+                    for (int i = 0; i < matches.size(); i++) {
+                        System.out.printf("%d. %s%n", i + 1, matches.get(i));
+                    }
+                    System.out.print("请输入要操作的文件编号: ");
+                    try {
+                        String choice = reader.readLine().trim();
+                        int index = Integer.parseInt(choice) - 1;
+                        if (index >= 0 && index < matches.size()) {
+                            target = workspace.getEditor(matches.get(index));
+                        } else {
+                            System.out.println("无效的编号");
+                            return;
+                        }
+                    } catch (Exception e) {
+                        System.out.println("输入无效");
+                        return;
+                    }
+                }
+            }
+        } else {
+            target = workspace.getActiveEditor();
+            if (target == null) {
+                System.out.println("没有活动的编辑器");
+                return;
+            }
         }
-        
-        workspace.enableLogging(editor);
+
+        workspace.enableLogging(target);
         System.out.println("已启用日志");
     }
     
     private void cmdLogOff(ParsedCommand cmd) {
-        EditorInstance editor = workspace.getActiveEditor();
-        if (editor == null) {
-            System.out.println("没有活动的编辑器");
-            return;
+        EditorInstance target = null;
+        if (cmd.getArgCount() > 0) {
+            String input = cmd.getArg(0);
+            if (workspace.isFileOpen(input)) {
+                target = workspace.getEditor(input);
+            } else {
+                List<String> matches = workspace.findFilesByName(input);
+                if (matches.isEmpty()) {
+                    System.out.println("文件未打开: " + input);
+                    return;
+                } else if (matches.size() == 1) {
+                    target = workspace.getEditor(matches.get(0));
+                } else {
+                    System.out.println("当前打开了多个名为 \"" + input + "\" 的文件：");
+                    for (int i = 0; i < matches.size(); i++) {
+                        System.out.printf("%d. %s%n", i + 1, matches.get(i));
+                    }
+                    System.out.print("请输入要操作的文件编号: ");
+                    try {
+                        String choice = reader.readLine().trim();
+                        int index = Integer.parseInt(choice) - 1;
+                        if (index >= 0 && index < matches.size()) {
+                            target = workspace.getEditor(matches.get(index));
+                        } else {
+                            System.out.println("无效的编号");
+                            return;
+                        }
+                    } catch (Exception e) {
+                        System.out.println("输入无效");
+                        return;
+                    }
+                }
+            }
+        } else {
+            target = workspace.getActiveEditor();
+            if (target == null) {
+                System.out.println("没有活动的编辑器");
+                return;
+            }
         }
-        
-        workspace.disableLogging(editor);
+
+        workspace.disableLogging(target);
         System.out.println("已禁用日志");
     }
     
     private void cmdLogShow(ParsedCommand cmd) throws IOException {
-        EditorInstance editor = workspace.getActiveEditor();
-        if (editor == null) {
-            System.out.println("没有活动的编辑器");
-            return;
+        EditorInstance target = null;
+        if (cmd.getArgCount() > 0) {
+            String input = cmd.getArg(0);
+            if (workspace.isFileOpen(input)) {
+                target = workspace.getEditor(input);
+            } else {
+                List<String> matches = workspace.findFilesByName(input);
+                if (matches.isEmpty()) {
+                    System.out.println("文件未打开: " + input);
+                    return;
+                } else if (matches.size() == 1) {
+                    target = workspace.getEditor(matches.get(0));
+                } else {
+                    System.out.println("当前打开了多个名为 \"" + input + "\" 的文件：");
+                    for (int i = 0; i < matches.size(); i++) {
+                        System.out.printf("%d. %s%n", i + 1, matches.get(i));
+                    }
+                    System.out.print("请输入要操作的文件编号: ");
+                    try {
+                        String choice = reader.readLine().trim();
+                        int index = Integer.parseInt(choice) - 1;
+                        if (index >= 0 && index < matches.size()) {
+                            target = workspace.getEditor(matches.get(index));
+                        } else {
+                            System.out.println("无效的编号");
+                            return;
+                        }
+                    } catch (Exception e) {
+                        System.out.println("输入无效");
+                        return;
+                    }
+                }
+            }
+        } else {
+            target = workspace.getActiveEditor();
+            if (target == null) {
+                System.out.println("没有活动的编辑器");
+                return;
+            }
         }
-        
-        if (!editor.isLoggingEnabled()) {
+
+        if (!target.isLoggingEnabled()) {
             System.out.println("当前文件未启用日志");
             return;
         }
-        
+
         // 生成日志文件路径
-        String filePath = editor.getFilePath();
+        String filePath = target.getFilePath();
         Path logPath = Paths.get(filePath).resolveSibling("." + Paths.get(filePath).getFileName() + ".log");
         
         if (!Files.exists(logPath)) {
@@ -800,36 +911,36 @@ public class CommandLineApp {
     }
     
     private void cmdHelp(ParsedCommand cmd) {
-        System.out.println("=== 命令帮助 ===");
-        System.out.println();
-        System.out.println("工作区命令:");
-        System.out.println("  load <文件>          - 加载文件");
-        System.out.println("  save [file|all]      - 保存文件（默认当前文件，all保存所有）");
-    System.out.println("  init <文件> [with-log] - 创建新文件（可开启日志）");
-        System.out.println("  close <文件>         - 关闭文件");
-        System.out.println("  edit <文件>          - 切换当前文件");
-        System.out.println("  editor-list          - 列出打开的文件");
-        System.out.println("  undo                 - 撤销");
-        System.out.println("  redo                 - 重做");
-        System.out.println("  exit                 - 退出程序");
-        System.out.println();
-        System.out.println("编辑命令:");
-        System.out.println("  append <文本>        - 追加一行");
-        System.out.println("  insert <行:列> <文本> - 插入文本");
-        System.out.println("  delete <行:列> <长度> - 删除文本");
-        System.out.println("  replace <行:列> <长度> <新文本> - 替换文本");
-        System.out.println("  show [起始行:结束行] - 显示文件内容（可指定范围）");
-        System.out.println();
-        System.out.println("日志命令:");
-        System.out.println("  log-on               - 启用日志");
-        System.out.println("  log-off              - 禁用日志");
-        System.out.println("  log-show             - 显示日志");
-        System.out.println();
-        System.out.println("辅助命令:");
-        System.out.println("  dir-tree [目录]      - 显示目录树");
-        System.out.println("  help                 - 显示此帮助");
-        System.out.println();
-        System.out.println("提示: 使用双引号括起带空格的参数，如: append \"hello world\"");
+    System.out.println("=== 命令帮助 ===");
+    System.out.println();
+    System.out.println("工作区命令:");
+    System.out.println("  load <file>             - 加载文件 (支持自动识别 #log)");
+    System.out.println("  save [file|all]         - 保存当前文件、指定文件或所有文件");
+    System.out.println("  init <file> [with-log]  - 创建新文件 (可选自动开启日志)");
+    System.out.println("  close [file]            - 关闭当前或指定文件");
+    System.out.println("  edit <file>             - 切换当前活动文件");
+    System.out.println("  editor-list             - 列出打开的文件及状态");
+    System.out.println("  undo                    - 撤销");
+    System.out.println("  redo                    - 重做");
+    System.out.println("  exit                    - 退出程序 (自动保存工作区)");
+    System.out.println();
+    System.out.println("编辑命令:");
+    System.out.println("  append <text>                - 在末尾追加一行");
+    System.out.println("  insert <line:col> <text>     - 在指定位置插入文本 (例: insert 1:5 \"text\")");
+    System.out.println("  delete <line:col> <len>      - 删除指定长度字符");
+    System.out.println("  replace <line:col> <len> <text> - 替换文本");
+    System.out.println("  show [start:end]             - 显示全文或指定行范围 (例: show 1:10)");
+    System.out.println();
+    System.out.println("日志命令:");
+    System.out.println("  log-on [file]           - 启用日志");
+    System.out.println("  log-off [file]          - 禁用日志");
+    System.out.println("  log-show [file]         - 显示日志内容");
+    System.out.println();
+    System.out.println("辅助命令:");
+    System.out.println("  dir-tree [path]         - 显示目录树");
+    System.out.println("  help                    - 显示此帮助");
+    System.out.println();
+    System.out.println("提示: 使用双引号括起带空格的参数，如: append \"hello world\"");
     }
     
     /**
