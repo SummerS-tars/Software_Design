@@ -32,11 +32,26 @@ public class DeleteCommand implements Command {
     
     @Override
     public void execute() {
-        // 在删除前，保存被删除的文本
         String currentLine = buffer.getLine(line);
+
+        // 零长度删除：不入历史，可视为 no-op，但如果仍被调用，记录为空串并直接返回
+        if (length == 0) {
+            deletedText = "";
+            return; // 不调用底层 delete 以免产生无意义历史记录
+        }
+
+        // 空行且 length>0：解释为删除整行，不进行 substring
+        if (currentLine.length() == 0 && length > 0) {
+            deletedText = "\n"; // 用换行符表示被删除了一行，便于 undo 还原空行
+            buffer.delete(line, col, length);
+            return;
+        }
+
+        // 边界安全后再截取待删除文本
+        if (col - 1 < 0 || col - 1 + length > currentLine.length()) {
+            throw new IndexOutOfBoundsException("删除范围越界: 起始列 " + col + ", 长度 " + length + ", 行长度 " + currentLine.length());
+        }
         deletedText = currentLine.substring(col - 1, col - 1 + length);
-        
-        // 执行删除操作
         buffer.delete(line, col, length);
     }
     

@@ -112,6 +112,25 @@ public class TextBuffer {
         }
 
         String currentLine = lines.get(line - 1);
+
+        // 允许零长度删除作为 no-op（不改变内容，不抛异常）
+        if (length == 0) {
+            // 对零长度删除，列可以在 1..行长度+1（与 insert 行尾规则一致）
+            if (col < 1 || col > currentLine.length() + 1) {
+                throw new IndexOutOfBoundsException("列号越界: " + col + "，有效范围: 1-" + (currentLine.length() + 1));
+            }
+            return; // 不执行任何修改
+        }
+
+        // 空行且 length>0：支持删除整行（行内无字符可删，解释为移除该行）
+        if (currentLine.length() == 0 && length > 0) {
+            // 对空行删除，列号限定为1（行内无字符）
+            if (col != 1) {
+                throw new IndexOutOfBoundsException("列号越界: " + col + "，有效范围: 1-1");
+            }
+            lines.remove(line - 1);
+            return;
+        }
         
         // 检查列号是否有效
         if (col < 1 || col > currentLine.length()) {

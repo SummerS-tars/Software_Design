@@ -585,6 +585,11 @@ public class CommandLineApp {
             int line = Integer.parseInt(pos[0]);
             int col = Integer.parseInt(pos[1]);
             int length = Integer.parseInt(cmd.getArg(1));
+
+            if (length == 0) {
+                System.out.println("删除长度为0，未执行任何操作");
+                return;
+            }
             
             DeleteCommand command = new DeleteCommand(editor.getBuffer(), line, col, length);
             editor.getHistory().push(command);
