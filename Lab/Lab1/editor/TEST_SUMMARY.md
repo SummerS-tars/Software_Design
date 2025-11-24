@@ -174,9 +174,12 @@ Tests run: 120 (原有72 + 新增48)
 | CLI Commands (原有) | 15 | ✅ |
 | CLI Commands (Save新增) | 8 | ✅ |
 | **CLI Commands 总计** | **23** | **✅** |
-| **新增总计** | **51** | **✅** |
+| Workspace (原有) | 21 | ✅ |
+| Workspace (保存提示新增) | 7 | ✅ 🆕 |
+| **Workspace 总计** | **28** | **✅** |
+| **Phase 5 新增总计** | **58** | **✅** |
 | 原有测试 | 69 | ✅ |
-| **总计** | **120** | **✅** |
+| **总计** | **127** | **✅** |
 
 ## 与功能对应关系
 
@@ -204,6 +207,14 @@ Tests run: 120 (原有72 + 新增48)
 | 修改标记管理 | CLICommandTest | 2个 |
 | 异常处理 | CLICommandTest | 1个 |
 | 目录创建 | CLICommandTest | 1个 |
+
+### 保存提示功能 🆕
+| 功能 | 相关测试 | 数量 |
+|------|---------|------|
+| 未保存检测 | WorkspaceTest | 2个 |
+| 特定文件检测 | WorkspaceTest | 1个 |
+| 获取未保存列表 | WorkspaceTest | 2个 |
+| 保存后状态 | WorkspaceTest | 2个 |
 
 ## 运行测试
 
@@ -305,13 +316,53 @@ workspace.save(file);
 assertFalse(editor.isModified());  // 验证标记清除
 ```
 
+## 最新更新 (2025-11-23 下午) 🆕🆕
+
+### 保存提示功能
+
+新增 7 个测试用例以验证 close/exit 命令的未保存更改提示功能：
+
+1. **testHasUnsavedChanges_noChanges** - 验证无更改时的检测
+2. **testHasUnsavedChanges_withChanges** - 验证有更改时的检测
+3. **testHasUnsavedChanges_specificFile** - 验证特定文件的更改检测
+4. **testGetUnsavedFiles_empty** - 验证空的未保存列表
+5. **testGetUnsavedFiles_withChanges** - 验证获取未保存文件列表
+6. **testHasUnsavedChanges_afterSave** - 验证保存后状态清除
+7. **testHasUnsavedChanges_multipleFilesAfterPartialSave** - 验证部分保存场景
+
+### Workspace 新增方法
+
+```java
+// 检查是否有未保存的文件
+boolean hasUnsavedChanges()
+
+// 检查指定文件是否有未保存的更改
+boolean hasUnsavedChanges(String path)
+
+// 获取所有未保存的文件路径列表
+List<String> getUnsavedFiles()
+```
+
+### 用户交互改进
+
+**Close 命令**：
+- 关闭文件前检测未保存更改
+- 提供 y/n/c 三个选项（保存/不保存/取消）
+- 保存失败时中止关闭操作
+
+**Exit 命令**：
+- 退出前列出所有未保存文件
+- 批量保存并报告结果
+- 保存失败时二次确认是否退出
+
 ## 总结
 
-通过新增 51 个单元测试（原计划 49，实际 51），我们全面验证了：
+通过新增 58 个单元测试（Phase 5 总计），我们全面验证了：
 1. ✅ **line:col 格式**在 insert/delete/replace 命令中正确工作
 2. ✅ **show 范围功能**可以正确显示指定行范围
 3. ✅ **save all 功能**可以批量保存所有打开的文件 🆕
-4. ✅ **修改标记管理**在保存前后正确维护 🆕
-5. ✅ **命令解析器**正确处理各种输入格式
-6. ✅ **错误处理**和边界条件得到妥善处理
-7. ✅ **异常场景**得到适当处理（无活动编辑器等）🆕
+4. ✅ **保存提示功能**防止数据丢失，提供友好的用户交互 🆕🆕
+5. ✅ **修改标记管理**在保存前后正确维护 🆕
+6. ✅ **命令解析器**正确处理各种输入格式
+7. ✅ **错误处理**和边界条件得到妥善处理
+8. ✅ **异常场景**得到适当处理（无活动编辑器等）🆕
